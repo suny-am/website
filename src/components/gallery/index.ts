@@ -53,25 +53,24 @@ const slider = {
   scrollLeft: 0,
   start: (e: PointerEvent) => {
     e.preventDefault();
-    console.debug("start", e);
     slider.isDragging = true;
     slider.startX = e.pageX;
     slider.scrollLeft = galleryImage?.scrollLeft || 0;
   },
   move: (e: PointerEvent) => {
-    e.preventDefault();
     if (!slider.isDragging) return;
-    console.debug("move", e);
+    console.debug("move", { e, target: e.target });
     e.preventDefault();
     const x = e.pageX;
     const walk = (x - slider.startX) * 3; // Adjust the multiplier for sensitivity
     if (galleryImage) {
       galleryImage.scrollLeft = slider.scrollLeft - walk;
+      galleryImage.style.cursor = "grabbing";
     }
   },
   end: (e: PointerEvent) => {
     e.preventDefault();
-    console.debug("end");
+    galleryImage!.style.cursor = "grab";
     slider.isDragging = false;
   },
 };
