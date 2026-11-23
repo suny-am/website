@@ -36,6 +36,7 @@ export const gallery = {
   </div>`,
   init: () => {
     content = document.querySelector("#content");
+    updateContent();
   },
 };
 
@@ -45,6 +46,39 @@ let nextButton: HTMLButtonElement | null;
 let mobileNavButton: HTMLElement | null;
 let mobileNavLinks: HTMLElement | null;
 let galleryImage: HTMLImageElement | null;
+
+const slider = {
+  isDragging: false,
+  startX: 0,
+  scrollLeft: 0,
+  start: (e: PointerEvent) => {
+    e.preventDefault();
+    console.debug("start", e);
+    slider.isDragging = true;
+    slider.startX = e.pageX;
+    slider.scrollLeft = galleryImage?.scrollLeft || 0;
+  },
+  move: (e: PointerEvent) => {
+    e.preventDefault();
+    if (!slider.isDragging) return;
+    console.debug("move", e);
+    e.preventDefault();
+    const x = e.pageX;
+    const walk = (x - slider.startX) * 3; // Adjust the multiplier for sensitivity
+    if (galleryImage) {
+      galleryImage.scrollLeft = slider.scrollLeft - walk;
+    }
+  },
+  end: (e: PointerEvent) => {
+    e.preventDefault();
+    console.debug("end");
+    slider.isDragging = false;
+  },
+};
+
+slider.start = slider.start.bind(slider);
+slider.move = slider.move.bind(slider);
+slider.end = slider.end.bind(slider);
 
 const changeImage = () => {
   let category = document.location.href.split("#").pop();
@@ -73,6 +107,29 @@ const registerEventListeners = () => {
     button?.removeEventListener("click", changeImage);
     button?.addEventListener("click", changeImage);
   });
+
+  console.debug("registerEventListeners", galleryImage);
+
+  if (galleryImage) {
+    galleryImage.removeEventListener("mousedown", slider.start);
+    galleryImage.removeEventListener("mousemove", slider.move);
+    galleryImage.removeEventListener("mouseup", slider.end);
+    galleryImage.removeEventListener("mouseleave", slider.end);
+
+    galleryImage.addEventListener("mousedown", slider.start);
+    galleryImage.addEventListener("mousemove", slider.move);
+    galleryImage.addEventListener("mouseup", slider.end);
+    galleryImage.addEventListener("mouseleave", slider.end);
+
+    // For touch devices
+    galleryImage.removeEventListener("touchstart", slider.start);
+    galleryImage.removeEventListener("touchmove", slider.move);
+    galleryImage.removeEventListener("touchend", slider.end);
+
+    galleryImage.addEventListener("touchstart", slider.start);
+    galleryImage.addEventListener("touchmove", slider.move);
+    galleryImage.addEventListener("touchend", slider.end);
+  }
 };
 
 export const updateContent = () => {
