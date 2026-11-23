@@ -1,41 +1,60 @@
 import { GALLERY_CATEGORIES } from "@/constants";
 
-const illustrations = `
-    <div id="gallery-box">
-      <img id="gallery-image" src="illustrations/1.png" alt="Gallery Image">
-    </div>
-    <div id="gallery-nav">
-      <button id="gallery-prev-button"><</button>
-      <button id="gallery-next-button">></button>
-    </div>
-`;
+const createGalleryImages = (category: string, count: number, file: string) => {
+  // NOTE: set last image in the set as the first image to create a seamless loop effect
+  let images = `<img class="gallery-image" src="${category}/${count}.${file}" alt="${category}">`;
+  for (let i = 0; i < count; i++) {
+    const image = `${category}/${i + 1}.${file}`;
+    images += `<img class="gallery-image" src="${image}" alt="${category}">`;
+  }
+  return images;
+};
 
-const concepts = `
-    <div id="gallery-box">
-      <img id="gallery-image" src="illustrations/1.png" alt="Gallery Image">
-    </div>
-    <div id="gallery-nav">
-      <button id="gallery-prev-button"><</button>
-      <button id="gallery-next-button">></button>
-    </div>
-`;
+const contentTypes: Record<string, string> = {
+  illustration: createGalleryImages(
+    "illustrations",
+    GALLERY_CATEGORIES.illustration,
+    "png",
+  ),
+  concept: createGalleryImages(
+    "illustrations",
+    GALLERY_CATEGORIES.illustration,
+    "png",
+  ),
 
-export const about = `
+  about: `
     <div id="about">
       <h2>A short intro</h2>
       <p>Welcome. Many things are happening behind the scenes... <br>I'm slowly making my way to you all. I hope it will be worth the wait.</p>
       <p> Thank you </p>
       <p> - Calle Sandberg</p>
     </div>
-`;
+`,
+};
+
+const galleryContent = (content: string) =>
+  contentTypes[content]
+    ? `
+    <div id="gallery-box">
+      <div id="gallery-image-slider">
+        ${contentTypes[content] ?? contentTypes.about}
+      </div>
+    </div>
+    <div id="gallery-nav">
+      <button id="gallery-prev-button"><</button>
+      <button id="gallery-next-button">></button>
+    </div>
+`
+    : contentTypes.about;
 
 export const gallery = {
   template: `
   <div id="content">
-    ${illustrations}
+    ${galleryContent("illustration")}
   </div>`,
   init: () => {
     content = document.querySelector("#content");
+    initSlider();
     updateContent();
   },
 };
@@ -45,89 +64,136 @@ let prevButton: HTMLButtonElement | null;
 let nextButton: HTMLButtonElement | null;
 let mobileNavButton: HTMLElement | null;
 let mobileNavLinks: HTMLElement | null;
-let galleryImage: HTMLImageElement | null;
-
-const slider = {
-  isDragging: false,
-  startX: 0,
-  scrollLeft: 0,
-  start: (e: PointerEvent) => {
-    e.preventDefault();
-    slider.isDragging = true;
-    slider.startX = e.pageX;
-    slider.scrollLeft = galleryImage?.scrollLeft || 0;
-  },
-  move: (e: PointerEvent) => {
-    if (!slider.isDragging) return;
-    console.debug("move", { e, target: e.target });
-    e.preventDefault();
-    const x = e.pageX;
-    const walk = (x - slider.startX) * 3; // Adjust the multiplier for sensitivity
-    if (galleryImage) {
-      galleryImage.scrollLeft = slider.scrollLeft - walk;
-      galleryImage.style.cursor = "grabbing";
-    }
-  },
-  end: (e: PointerEvent) => {
-    e.preventDefault();
-    galleryImage!.style.cursor = "grab";
-    slider.isDragging = false;
-  },
+let gallerySlider: HTMLImageElement | null;
+let slider: {
+  isDragging: boolean;
+  startX: number;
+  scrollLeft: number;
+  deltaX: number;
+  galleryWidth: number;
+  start: (e: PointerEvent) => void;
+  move: (e: PointerEvent) => void;
+  end: (e: PointerEvent) => void;
 };
 
-slider.start = slider.start.bind(slider);
-slider.move = slider.move.bind(slider);
-slider.end = slider.end.bind(slider);
+const initSlider = () => {
+  slider = {
+    isDragging: false,
+    startX: 0,
+    scrollLeft: 0,
+    deltaX: 0,
+    galleryWidth: gallerySlider?.offsetWidth || 0,
+    start: (e: PointerEvent) => {
+      e.preventDefault();
+      slider.isDragging = true;
+      slider.startX = e.pageX;
+      slider.scrollLeft = gallerySlider?.scrollLeft || 0;
+    },
+    move: (e: PointerEvent) => {
+      if (!slider.isDragging) return;
+      e.preventDefault();
+      const x = e.pageX;
+      slider.deltaX = (x - slider.startX) * 1; // Adjust the multiplier for sensitivity
 
-const changeImage = () => {
-  let category = document.location.href.split("#").pop();
+      if (gallerySlider) {
+        gallerySlider.scrollLeft = slider.scrollLeft - slider.deltaX;
+        gallerySlider.style.transform = `translateX(${slider.deltaX}px)`; // Move the image
+        // if  has slid far enough, force end the drag action slide in the next image in the set
+        // depending on the direction of the drag
 
-  if (!GALLERY_CATEGORIES[category!]) {
-    category = "illustration";
+        if (Math.abs(slider.deltaX) > gallerySlider.offsetWidth / 40) {
+          slider.end(e);
+        }
+      }
+    },
+    end: (e: PointerEvent) => {
+      e.preventDefault();
+      slider.isDragging = false;
+
+      if (gallerySlider) {
+        gallerySlider.scrollLeft = slider.scrollLeft; // Reset the scroll position
+        gallerySlider.style.transition = "transform 0.3s ease"; // Smooth transition back to original position
+        gallerySlider.style.transform = `translateX(0)`; // Reset the image position
+
+        setTimeout(() => {
+          gallerySlider!.style.transition = ""; // Remove the transition after it's done
+        }, 300);
+
+        // if the drag was far enough, slide to the next or previous image
+        if (Math.abs(slider.deltaX) > 50) {
+          console.debug(
+            `Dragged ${slider.deltaX > 0 ? "right" : "left"} far enough to change image.`,
+          );
+          if (slider.deltaX > 0) {
+            // Dragged to the right, go to previous image
+            prevButton?.click();
+          } else {
+            // Dragged to the left, go to next image
+            nextButton?.click();
+          }
+        }
+      }
+    },
+  };
+
+  slider.start = slider.start.bind(slider);
+  slider.move = slider.move.bind(slider);
+  slider.end = slider.end.bind(slider);
+};
+
+const moveImage = (direction: "next" | "prev") => {
+  if (!gallerySlider) return;
+
+  const images =
+    gallerySlider.querySelectorAll<HTMLImageElement>(".gallery-image");
+  const firstImage = images[0];
+  const lastImage = images[images.length - 1];
+
+  if (direction === "next") {
+    // first translate the wrapper so that the first image is out of view, then move the first image to the end of the list and reset the translation
+    gallerySlider.style.transition = "transform 0.3s ease"; // Smooth transition
+    gallerySlider.style.transform = `translateX(-${firstImage.offsetWidth}px)`; // Move the first image out of view
+
+    setTimeout(() => {
+      gallerySlider!.style.transition = ""; // Remove the transition
+      gallerySlider!.style.transform = `translateX(0)`; // Reset the translation
+      gallerySlider!.appendChild(firstImage); // Move the first image to the end
+    }, 300); // Wait for the transition to finish
+  } else if (direction === "prev") {
+    // first translate the wrapper so that the last image is in view, then move the last image to the start of the list and reset the translation
+    gallerySlider.style.transition = "none"; // No transition for immediate effect
+    gallerySlider.style.transform = `translateX(-${lastImage.offsetWidth}px)`; // Move the last image into view
+
+    setTimeout(() => {
+      gallerySlider!.style.transition = "transform 0.3s ease"; // Smooth transition back to original position
+      gallerySlider!.style.transform = `translateX(0)`; // Reset the translation
+      gallerySlider!.insertBefore(lastImage, firstImage); // Move the last image to the start
+    }, 0); // Immediate effect
   }
 
-  if (!category || !GALLERY_CATEGORIES[category]) {
-    return;
-  }
-  const currentGalleryImage = galleryImage?.src.split("/").pop()?.split(".")[0];
-  if (currentGalleryImage) {
-    const currentIndex = parseInt(currentGalleryImage);
-
-    const increment = currentIndex + 1;
-
-    const nextIndex =
-      currentIndex < GALLERY_CATEGORIES[category] ? increment : 1; // Loop back to the first image
-    galleryImage!.src = `illustrations/${nextIndex}.png`;
-  }
+  console.debug(`Moved image ${direction}. New first image: ${images[0].src}`);
 };
 
 const registerEventListeners = () => {
   [prevButton, nextButton].forEach((button) => {
-    button?.removeEventListener("click", changeImage);
-    button?.addEventListener("click", changeImage);
+    button?.removeEventListener("click", () =>
+      moveImage(button?.id === "gallery-next-button" ? "next" : "prev"),
+    );
+    button?.addEventListener("click", () =>
+      moveImage(button?.id === "gallery-next-button" ? "next" : "prev"),
+    );
   });
 
-  console.debug("registerEventListeners", galleryImage);
+  if (gallerySlider) {
+    gallerySlider.removeEventListener("pointerdown", slider.start);
+    gallerySlider.removeEventListener("pointermove", slider.move);
+    gallerySlider.removeEventListener("pointerup", slider.end);
+    gallerySlider.removeEventListener("pointerleave", slider.end);
 
-  if (galleryImage) {
-    galleryImage.removeEventListener("mousedown", slider.start);
-    galleryImage.removeEventListener("mousemove", slider.move);
-    galleryImage.removeEventListener("mouseup", slider.end);
-    galleryImage.removeEventListener("mouseleave", slider.end);
-
-    galleryImage.addEventListener("mousedown", slider.start);
-    galleryImage.addEventListener("mousemove", slider.move);
-    galleryImage.addEventListener("mouseup", slider.end);
-    galleryImage.addEventListener("mouseleave", slider.end);
-
-    // For touch devices
-    galleryImage.removeEventListener("touchstart", slider.start);
-    galleryImage.removeEventListener("touchmove", slider.move);
-    galleryImage.removeEventListener("touchend", slider.end);
-
-    galleryImage.addEventListener("touchstart", slider.start);
-    galleryImage.addEventListener("touchmove", slider.move);
-    galleryImage.addEventListener("touchend", slider.end);
+    gallerySlider.addEventListener("pointerdown", slider.start);
+    gallerySlider.addEventListener("pointermove", slider.move);
+    gallerySlider.addEventListener("pointerup", slider.end);
+    gallerySlider.addEventListener("pointerleave", slider.end);
   }
 };
 
@@ -137,22 +203,24 @@ export const updateContent = () => {
   if (content) {
     switch (category) {
       case "concept":
-        content.innerHTML = concepts;
+        content.innerHTML = galleryContent("concept");
         break;
       case "illustration":
-        content.innerHTML = illustrations;
+        content.innerHTML = galleryContent("illustration");
         break;
       case "about":
-        content.innerHTML = about;
+        content.innerHTML = galleryContent("about");
         break;
       default:
-        content.innerHTML = illustrations; // Default to illustration if no category is specified
+        content.innerHTML = galleryContent("illustration"); // Default to illustration if no category is specified
     }
   }
 
   mobileNavButton = document.querySelector(".material-symbols-outlined");
   mobileNavLinks = document.querySelector("#mobile-nav-links");
-  galleryImage = document.querySelector<HTMLImageElement>("#gallery-image");
+  gallerySlider = document.querySelector<HTMLImageElement>(
+    "#gallery-image-slider",
+  );
   nextButton = document.querySelector("#gallery-next-button");
   prevButton = document.querySelector("#gallery-prev-button");
 
