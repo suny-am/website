@@ -1,12 +1,13 @@
 import { footer } from "@/components/footer";
-import { content } from "@/components/content";
+import { gallery } from "@/components/gallery";
 import { nav } from "@/components/nav";
 import "@/style.css";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-  ${nav.content}
-  ${content}
-  ${footer}
+  ${nav.template}
+  ${gallery.template}
+  ${footer.template}
 `;
 
 nav.init();
+gallery.init();
