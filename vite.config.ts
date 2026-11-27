@@ -11,7 +11,7 @@ const VITE_CONCEPT_FILE_COUNT =
 console.log(`ILLUST_FILE_COUNT: ${VITE_ILLUST_FILE_COUNT}`);
 console.log(`CONCEPT_FILE_COUNT: ${VITE_CONCEPT_FILE_COUNT}`);
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [],
   resolve: {
     alias: {
@@ -31,5 +31,17 @@ export default defineConfig({
   build: {
     outDir: "docs",
     sourcemap: true,
+    minify: true,
+    rolldownOptions: {
+      output: {
+        minify: {
+          compress: {
+            dropConsole: true,
+            dropDebugger: true,
+            dropLabels: mode === "production" ? ["DEV"] : [],
+          },
+        },
+      },
+    },
   },
-});
+}));

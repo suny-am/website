@@ -62,8 +62,6 @@ export const gallery = {
 let content: HTMLElement | null;
 let prevButton: HTMLButtonElement | null;
 let nextButton: HTMLButtonElement | null;
-let mobileNavButton: HTMLElement | null;
-let mobileNavLinks: HTMLElement | null;
 let gallerySlider: HTMLImageElement | null;
 let slider: {
   isDragging: boolean;
@@ -121,9 +119,6 @@ const initSlider = () => {
 
         // if the drag was far enough, slide to the next or previous image
         if (Math.abs(slider.deltaX) > 50) {
-          console.debug(
-            `Dragged ${slider.deltaX > 0 ? "right" : "left"} far enough to change image.`,
-          );
           if (slider.deltaX > 0) {
             // Dragged to the right, go to previous image
             prevButton?.click();
@@ -146,7 +141,9 @@ const moveImage = (direction: "next" | "prev") => {
 
   const images =
     gallerySlider.querySelectorAll<HTMLImageElement>(".gallery-image");
+
   const firstImage = images[0];
+  const activeImage = images[1]; // The image that is currently in view
   const lastImage = images[images.length - 1];
 
   if (direction === "next") {
@@ -157,21 +154,22 @@ const moveImage = (direction: "next" | "prev") => {
     setTimeout(() => {
       gallerySlider!.style.transition = ""; // Remove the transition
       gallerySlider!.style.transform = `translateX(0)`; // Reset the translation
-      gallerySlider!.appendChild(firstImage); // Move the first image to the end
+      const target =
+        firstImage.src === lastImage.src ? activeImage : firstImage;
+      gallerySlider!.appendChild(target); // Move the first image to the end of the list
     }, 300); // Wait for the transition to finish
   } else if (direction === "prev") {
-    // first translate the wrapper so that the last image is in view, then move the last image to the start of the list and reset the translation
-    gallerySlider.style.transition = "none"; // No transition for immediate effect
-    gallerySlider.style.transform = `translateX(-${lastImage.offsetWidth}px)`; // Move the last image into view
-
+    // same as above but in reverse, move the last image to the front of the list and translate the wrapper so that the last image is in view, then reset the translation
+    // animate right
+    gallerySlider.style.transition = "transform 0.3s ease"; // Smooth transition
+    gallerySlider.style.transform = `translateX(${lastImage.offsetWidth}px)`; // Move the last image out of view
     setTimeout(() => {
-      gallerySlider!.style.transition = "transform 0.3s ease"; // Smooth transition back to original position
+      gallerySlider!.style.transition = ""; // Remove the transition
       gallerySlider!.style.transform = `translateX(0)`; // Reset the translation
-      gallerySlider!.insertBefore(lastImage, firstImage); // Move the last image to the start
-    }, 0); // Immediate effect
+      const target = lastImage.src === firstImage.src ? activeImage : lastImage;
+      gallerySlider!.insertBefore(target, firstImage); // Move the last image to the front of the list
+    }, 300); // Wait for the transition to finish
   }
-
-  console.debug(`Moved image ${direction}. New first image: ${images[0].src}`);
 };
 
 const registerEventListeners = () => {
@@ -216,8 +214,6 @@ export const updateContent = () => {
     }
   }
 
-  mobileNavButton = document.querySelector(".material-symbols-outlined");
-  mobileNavLinks = document.querySelector("#mobile-nav-links");
   gallerySlider = document.querySelector<HTMLImageElement>(
     "#gallery-image-slider",
   );
