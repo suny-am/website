@@ -137,7 +137,7 @@ export default class Slider implements ISlider {
       }
 
       const recycledImage = images[
-        direction === "next" ? 0 : images.length
+        direction === "next" ? 0 : images.length - 1
       ] as HTMLImageElement | null;
 
       if (recycledImage) {
